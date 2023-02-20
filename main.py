@@ -22,11 +22,13 @@ __license__ = "Apache 2.0"
 
 from cfg._configs import Parser
 from trainer import Trainer
+# from model.base_model import Model_example
+import model
 
 
 
 if __name__ == '__main__':
     arg_=Parser()
-    trainer=Trainer()
+    trainer=Trainer(model=model.Base_Model)
 
     trainer.train()

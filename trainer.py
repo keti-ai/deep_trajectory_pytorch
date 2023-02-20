@@ -38,7 +38,8 @@ class BaseSampler():
         pass
 
 class Trainer():
-    def __init__(self):
+    def __init__(self,model):
+        self.model = model()
         pass
     def train(self):
         print("do train")
