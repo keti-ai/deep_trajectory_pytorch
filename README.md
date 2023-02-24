@@ -2,4 +2,8 @@
 
 
 ## References
-- Smith, J. (2022). My Awesome Code Repository. GitHub. https://github.com/jsmith/my-awesome-code-repo
+- Oleg Sémery. (2021). Deep learning networks. GitHub. https://github.com/osmr/imgclsmob.git
+
+## Train
+
+python train.py

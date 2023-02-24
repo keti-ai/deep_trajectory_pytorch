@@ -29,6 +29,5 @@ import model
 
 if __name__ == '__main__':
     arg_=Parser()
-    trainer=Trainer(model=model.Base_Model)
-
+    trainer=Trainer(model=model.seresnext50_32x4d())
     trainer.train()

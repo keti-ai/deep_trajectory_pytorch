@@ -2,7 +2,6 @@
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from data.base_dataset import BaseDataSet
-
 from torch.utils.data.sampler import BatchSampler, SequentialSampler
 
 import time
@@ -39,7 +38,7 @@ class BaseSampler():
 
 class Trainer():
     def __init__(self,model):
-        self.model = model()
+        self.model = model
         pass
     def train(self):
         print("do train")
@@ -61,9 +60,6 @@ class Trainer():
             print(feed_dict['input'])
             print(feed_dict['label'])
             time.sleep(0.25)
-
-
-
 
 
 
