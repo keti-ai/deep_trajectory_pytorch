@@ -2,6 +2,7 @@
 
 from torch.utils.data import Dataset
 from torchvision import datasets
+from torchvision import transforms
 from torch.nn.utils.rnn import PackedSequence
 
 import torch
@@ -18,15 +19,18 @@ import numpy as np
 #
 class BaseDataSet(Dataset):
     def __init__(self):
-        self.data = np.array([1,2,3,4,5])
-
-
-
-        self.label = np.array([1,0,1,0,1])
+        self.data = np.random.rand(10,120,256,128,3)
+        self.label = np.random.randint(0,1000,(10,120))
+        self.transforms=transforms.Compose([transforms.ToTensor(),
+                                            transforms.Resize((224,224))])
     def __len__(self):
         return len(self.data)
-    def __getitem__(self, idx):
-        data_ = torch.Tensor(self.data[idx]).cuda()
-        label_ = torch.Tensor(self.label[idx]).cuda()
-        return data_,label_
+    def __getitem__(self, idx): # idx == iter
+        in_batch=self.data[idx].__len__()
+        data_=[]
+        for j in range(in_batch):
+            data_in=self.data[idx][j]
+            for i in range(data_in.shape[0]):
+                data_.append(self.transforms(data_in[i]))
+        return torch.Tensor(torch.stack(data_)).float().cuda(),torch.Tensor(self.label[idx]).cuda().type(torch.cuda.LongTensor)
 

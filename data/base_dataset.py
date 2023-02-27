@@ -12,9 +12,6 @@ import numpy as np
 class BaseDataSet(Dataset):
     def __init__(self):
         self.data = np.array([1,2,3,4,5])
-
-
-
         self.label = np.array([1,0,1,0,1])
     def __len__(self):
         return len(self.data)
