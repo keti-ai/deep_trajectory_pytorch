@@ -3,16 +3,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# Logging
 import visdom
-vis = visdom.Visdom()
-
-EXP="Train Cleaving\n"
-
-# Text
 import datetime
+vis = visdom.Visdom()
+EXP="Train Cleaving\n"
+# Text
 vis.text(EXP+"<br>"+str(datetime.datetime.now()),env="main")
 from model.seresnext import seresnext50_32x4d
-from torch.nn.utils.rnn import PackedSequence
+# from torch.nn.utils.rnn import PackedSequence
 class Cleaving(nn.Module):
     def __init__(self,wh=(224,224),track_len=120,id_len=1000,feat_size=2048, hidden_size=256, num_layers=4, dropout=0.2):
         super().__init__()
@@ -32,16 +31,9 @@ class Cleaving(nn.Module):
         self.width = wh[0]
         self.height = wh[1]
 
-        # loss
-        #
-        # self.criterion_feat
-        # self.cr
     def forward(self,x): # x.shape == batch,track, feat
         batch_in=x.shape[0]
-
         x=x.view(self.track_len,batch_in,-1,self.wh[0],self.wh[1])
-
-        print("x : ",x.shape)
         feat = []
         for i in range(self.track_len):
             feat.append(self.feat_ex_module(x[i]))
@@ -213,13 +205,22 @@ for epoch in range(num_epochs):
 
         # loss = criterion(output1 - output2, label.float())
         loss_=0
+        loss_gru=0
+        loss_srh=0
+        loss_pur=0
         for j in range(batch_size):
-            loss_+=criterion_gru(gru_out_f[j],label[j])+criterion_gru(gru_out_b[j],label[j])
+            loss_gru+=criterion_gru(gru_out_f[j],label[j])+\
+                      criterion_gru(gru_out_b[j],label[j])
+            loss_srh+=criterion_srh(srh_out[j],)
+            loss_pur+=criterion_pur(pur_out[j],len(set(label.numpy())))
+
+        loss_=lam_feat*loss_gru+lam_search*loss_srh+lam_pur*loss_pur
         loss_.backward()
         optimizer.step()
 
         # Print statistics
         running_loss += loss_.item()
+        print('[Epoch %d, Iteration %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 100))
         if i % 100 == 99:
             print('[Epoch %d, Iteration %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 100))
             running_loss = 0.0
