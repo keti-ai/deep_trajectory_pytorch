@@ -20,15 +20,19 @@ class VisLogger():
         self._x=0
         self.title=title
         self.legends=legends
-    def vis_log(self,win_name,x_, val):
+    def vis_log(self,win_name,x_, val,title="Test"):
 
         # val=torch.view()
-        self.data_len =len(val)
+        try:
+            self.data_len =len(val)
+        except:
+            self.data_len=0
         if self.data_len > 1:
             val = [li.item() for li in val]
-            self.vis.line(Y=[val],X=[x_],win=win_name, update="append" ,opts=dict(title=self.title, legend=self.legends,showlegend=True))
+            self.vis.line(Y=[val],X=[x_],win=win_name, update="append" ,opts=dict(title=title, legend=self.legends,showlegend=True))
         else:
-            self.vis.line(Y=[val], X=[x_], win=win_name, update="append")
+            val=val.item()
+            self.vis.line(Y=[val], X=[x_], win=win_name, update="append",opts=dict(title=title))
 
         self.wins.append(win_name)
         self.wins=list(set(self.wins))
@@ -74,8 +78,11 @@ class Cleaving(nn.Module):
         batch_in=x.shape[0]
         x=x.view(self.track_len,batch_in,-1,self.wh[0],self.wh[1])
         feat = []
-        for i in range(self.track_len):
-            feat.append(self.feat_ex_module(x[i]))
+        for j in range(batch_in):
+            feat_=[]
+            for i in range(self.track_len):
+                feat_.append(self.feat_ex_module(x[i]))
+            feat.append(torch.stack(feat_))
         # feat=self.feat_ex_module(x)
 
         feat = torch.stack(feat)
@@ -159,12 +166,12 @@ class SiameseBiGRU(nn.Module):
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from data.seq_track_dataset import BaseDataSet,TrackDataSet
-from torch.utils.data.sampler import BatchSampler, SequentialSampler
+from torch.utils.data.sampler import BatchSampler, SequentialSampler,SubsetRandomSampler,RandomSampler
 
 import time
 class BaseDataLoader(DataLoader):
     def __init__(self, dataset=BaseDataSet, batch_size=1, shuffle=False, sampler=None,batch_sampler=None, num_workers=0, collate_fn=None,pin_memory=False, drop_last=False, timeout=0,worker_init_fn=None, *, prefetch_factor=2,persistent_workers=False):
-        super().__init__(dataset=dataset,persistent_workers=persistent_workers,batch_size=batch_size,sampler=sampler,drop_last=drop_last)
+        super().__init__(dataset=dataset,persistent_workers=persistent_workers,batch_size=batch_size,shuffle=shuffle,sampler=sampler,drop_last=drop_last)
         # self.persistent_workers = persistent_workers
         self.prefetch_factor = prefetch_factor
         self.worker_init_fn = worker_init_fn
@@ -198,7 +205,7 @@ if __name__ == "__main__":
     hidden_size = 256
     num_layers = 4
     dropout = 0.2
-    learning_rate = 0.1
+    learning_rate = 0.001
 
     # Tracklet info
     track_len_in = 120
@@ -209,11 +216,11 @@ if __name__ == "__main__":
 
     # Define the loss function and optimizer
     lam_feat = 1
-    lam_search = 5
+    lam_search = 1
     lam_pur = 1
 
     criterion_gru = torch.nn.CrossEntropyLoss()
-    criterion_srh = torch.nn.CrossEntropyLoss()
+    criterion_srh = torch.nn.L1Loss()
     criterion_pur = torch.nn.BCELoss()
 
     # cleav_loss = lam_feat*criterion_gru + lam_search*criterion_srh + lam_pur * criterion_pur
@@ -221,19 +228,29 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # basedataset = BaseDataSet()
 
-    basedataset = TrackDataSet(root_dir="/media/syh/ssd2/data/ReID/bounding_box_train",track_length=120)
+    trackdataset = TrackDataSet(root_dir="/media/syh/ssd2/data/ReID/bounding_box_train",track_length=120)
     batch_size_ = 1
+    # dataloader = BaseDataLoader(
+    #     shuffle=True,
+    #     dataset=trackdataset,
+    #     collate_fn=base_collate_fn,
+    #     batch_size=batch_size_,
+    #     sampler=BatchSampler(
+    #         SequentialSampler(trackdataset),
+    #         batch_size=batch_size_,
+    #         drop_last=False
+    #     )
+    # )
     dataloader = BaseDataLoader(
-        dataset=basedataset,
+        dataset=trackdataset,
         collate_fn=base_collate_fn,
         batch_size=batch_size_,
         sampler=BatchSampler(
-            SequentialSampler(basedataset),
-            batch_size=1,
+            RandomSampler(trackdataset),
+            batch_size=batch_size_,
             drop_last=False
         )
     )
-
     iter = 0
 
     for epoch in range(num_epochs):
@@ -280,13 +297,15 @@ if __name__ == "__main__":
 
             # print('[Epoch %d, Iteration %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 100))
             vis_log.vis_log(win_name="main/loss", x_=iter, val=[loss_gru, loss_srh, loss_pur, loss_])
-            vis_log.vis_log(win_name="main/loss_Gru", x_=iter, val=loss_gru)
-            vis_log.vis_log(win_name="main/loss", x_=iter, val=loss_srh)
-            vis_log.vis_log(win_name="main/loss", x_=iter, val=loss_pur)
+            vis_log.vis_log(win_name="main/loss_Gru", x_=iter, val=loss_gru,title="loss_Gru")
+            vis_log.vis_log(win_name="main/loss_srh", x_=iter, val=loss_srh,title="loss_srh")
+            vis_log.vis_log(win_name="main/loss_pur", x_=iter, val=loss_pur,title="loss_pur")
             if i % 100 == 99:
-                vis_log.vis_img(win_name="main/input", img=data[0][0][0][::20])
-                print('[Epoch %d, Iteration %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 100))
-                running_loss = 0.0
+
                 PATH="%d_model.pth"%(iter)
                 PATH=os.path.join("/media/syh/hdd/checkpoints/deep_trajectory",PATH)
                 torch.save(model, PATH)
+            if i % 30 == 29:
+                vis_log.vis_img(win_name="main/input", img=data[0][0])
+                print('[Epoch %d, Iteration %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 30))
+                running_loss = 0.0

@@ -155,10 +155,11 @@ class TrackDataSet(Dataset):
         self.label = np.random.randint(0,1000,(10,120))
         track == 120*bbox
         '''
-        in_batch=idx.__len__()
+        # in_batch=idx.__len__()
         in_tracks=[]
         for i in range(len(idx)):
             in_tracks.append(self.tracks[idx[i]])
+        # in_tracks.append(self.tracks[idx])
 
         data_=[]
         # labels = np.random.randint(0,23,(in_batch,120))
@@ -166,25 +167,41 @@ class TrackDataSet(Dataset):
         # print("idx :",idx)
         labels = []
         imgs = []
-        for i in range(len(idx)):
-            label_ = []
-            imgs_ = []
-            for tr in in_tracks:
-                label_=[]
-                imgs_=[]
-                for bb in tr:
-                    label_.append(bb.get_id())
+        # for i in range(len(idx.size())):
+        #     label_ = []
+        #     imgs_ = []
+        #     for tr in in_tracks:
+        #         label_=[]
+        #         imgs_=[]
+        #         for bb in tr:
+        #             label_.append(bb.get_id())
+        #
+        #             with Image.open(os.path.join(self.root_dir,str(bb))) as image:
+        #                 if self.transforms:
+        #                     image = self.transforms(image)
+        #                 imgs_.append(image)
+        #
+        #     labels.append(label_)
+        #     imgs.append(torch.Tensor(imgs_))
 
-                    with Image.open(os.path.join(self.root_dir,str(bb))) as image:
-                        if self.transforms:
-                            image = self.transforms(image)
-                        imgs_.append(image)
+        label_ = []
+        imgs_ = []
+        for tr in in_tracks:
+            label_=[]
+            imgs_=[]
+            for bb in tr:
+                label_.append(bb.get_id())
 
-            labels.append(label_)
-            imgs.append(torch.stack(imgs_))
+                with Image.open(os.path.join(self.root_dir,str(bb))) as image:
+                    if self.transforms:
+                        image = self.transforms(image)
+                    imgs_.append(image)
+        #
+        # labels.append(label_)
+        # imgs.append(imgs_)
 
-        return torch.Tensor(torch.stack(imgs)).float().cuda(),\
-            torch.Tensor(labels).cuda().type(torch.cuda.LongTensor)
+        return torch.Tensor(torch.stack(imgs_)).float().cuda(),\
+            torch.Tensor(label_).cuda().type(torch.cuda.LongTensor)
 
     # ToDo tracklet 만들기
     # method load_tracks 에서 tracklet 을 정의해고 해당 되는  bbox 링크만 정의
@@ -194,8 +211,9 @@ class TrackDataSet(Dataset):
         track = []
         list_bbox = os.listdir(self.root_dir)
         list_bbox.sort()
-
-
+        if os.path.exists('/media/syh/hdd/checkpoints/data_check/data_MUF.pt'):
+            self.tracks=torch.load('/media/syh/hdd/checkpoints/data_check/data_MUF.pt')
+            return True
         bbox_list = []
         for li in list_bbox:
             bbox_list.append(Bbox(li, *li.split(".")[0].split("_")))
@@ -232,12 +250,13 @@ class TrackDataSet(Dataset):
         for tr in track_120:
             if indee>=200:
                 in_boxes=tr.get_bboxes()
-                negee_track.append(Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[:60], delay, length))
-                negee_track.append(
+                negee_tracks.append(Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[:60], delay, length))
+                negee_tracks.append(
                     Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[60:], delay,
                              length))
             else:
                 pos_tracks.append(tr)
+            indee+=1
         while len(negee_tracks)!=0:
             in_tr = negee_tracks.pop(0)
             pop_ind = 0
@@ -245,7 +264,7 @@ class TrackDataSet(Dataset):
             for i, tr in enumerate(negee_tracks):
                 if in_tr.get_id() != tr.get_id():
                     get_=True
-                    in_tr.add_bboxes(tr)
+                    in_tr.add_bboxes(tr.get_bboxes())
                     pop_ind = i
                     negee_tracks.pop(pop_ind)
                     break
@@ -255,6 +274,7 @@ class TrackDataSet(Dataset):
 
 
         self.tracks=pos_tracks+neg_tracks
+        torch.save(self.tracks, '/media/syh/hdd/checkpoints/data_check/data_MUF.pt')
         #
         # for filename in sorted(os.listdir(self.root_dir)):
         #     if filename.endswith('.jpg') or filename.endswith('.png'):
