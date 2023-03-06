@@ -40,7 +40,7 @@ from PIL import Image
 
 class Bbox():
     def __init__(self, url, id_, cam, proj, ext_, frame):
-        self.id = int(id_)
+        self.id = int(id_)-1
         self.cam = int(cam[1:])
         self.proj = proj
         self.ext_ = ext_
@@ -138,7 +138,7 @@ class TrackDataSet(Dataset):
 
         self.tracks=[]
         self.transforms=transforms.Compose([transforms.ToTensor(),
-                                            transforms.Resize((224,224))])
+                                            transforms.Resize((256,128))])
 
         self.load_tracks()
         print("Load Track done")
@@ -159,9 +159,7 @@ class TrackDataSet(Dataset):
         in_tracks=[]
         for i in range(len(idx)):
             in_tracks.append(self.tracks[idx[i]])
-        # in_tracks.append(self.tracks[idx])
 
-        data_=[]
         # labels = np.random.randint(0,23,(in_batch,120))
 
         # print("idx :",idx)
@@ -196,23 +194,23 @@ class TrackDataSet(Dataset):
                     if self.transforms:
                         image = self.transforms(image)
                     imgs_.append(image)
-        #
+        #e
         # labels.append(label_)
         # imgs.append(imgs_)
 
         return torch.Tensor(torch.stack(imgs_)).float().cuda(),\
             torch.Tensor(label_).cuda().type(torch.cuda.LongTensor)
 
-    # ToDo tracklet 만들기
     # method load_tracks 에서 tracklet 을 정의해고 해당 되는  bbox 링크만 정의
     # image 로드는 __get_item__에서 실행
     # make Track List
-    def load_tracks(self):
+    def load_tracks(self,zero_ind=False):
         track = []
         list_bbox = os.listdir(self.root_dir)
         list_bbox.sort()
-        if os.path.exists('/media/syh/hdd/checkpoints/data_check/data_MUF.pt'):
-            self.tracks=torch.load('/media/syh/hdd/checkpoints/data_check/data_MUF.pt')
+        if os.path.exists('/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt'):
+            self.tracks=torch.load('/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt')
+            print("pass")
             return True
         bbox_list = []
         for li in list_bbox:
@@ -247,34 +245,44 @@ class TrackDataSet(Dataset):
         pos_tracks = []
         negee_tracks = []
         neg_tracks= []
+        for_nee=[]
+        back_nee=[]
         for tr in track_120:
-            if indee>=200:
-                in_boxes=tr.get_bboxes()
-                negee_tracks.append(Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[:60], delay, length))
-                negee_tracks.append(
-                    Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[60:], delay,
-                             length))
-            else:
+            if indee > 356:
                 pos_tracks.append(tr)
-            indee+=1
-        while len(negee_tracks)!=0:
-            in_tr = negee_tracks.pop(0)
-            pop_ind = 0
-            get_=False
-            for i, tr in enumerate(negee_tracks):
-                if in_tr.get_id() != tr.get_id():
-                    get_=True
-                    in_tr.add_bboxes(tr.get_bboxes())
-                    pop_ind = i
-                    negee_tracks.pop(pop_ind)
-                    break
-            if get_:
-                neg_tracks.append(in_tr)
+            else:
+                cut_id=indee%119+1
+                in_boxes = tr.get_bboxes()
+                for_nee.append(
+                    Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[:cut_id], delay,
+                             length))
+                back_nee.append(
+                    Tracklet(in_boxes[0].get_id(), in_boxes[0].get_cam(), in_boxes[0].get_proj(), in_boxes[cut_id:], delay,
+                             length))
+            indee += 1
+        for i in range(119):
+            back_nee.append(back_nee.pop(0))
+        for tr_f,tf_b in zip(for_nee,back_nee):
+            tr_f.add_bboxes(tf_b.get_bboxes())
+            neg_tracks.append(tr_f)
+        # while len(negee_tracks) != 0:
+        #     in_tr = negee_tracks.pop(0)
+        #     pop_ind = 0
+        #     get_ = False
+        #     for i, tr in enumerate(negee_tracks):
+        #         if in_tr.get_id() != tr.get_id():
+        #             get_ = True
+        #             in_tr.add_bboxes(tr.get_bboxes())
+        #             pop_ind = i
+        #             negee_tracks.pop(pop_ind)
+        #             break
+        #     if get_:
+        #         neg_tracks.append(in_tr)
 
 
 
         self.tracks=pos_tracks+neg_tracks
-        torch.save(self.tracks, '/media/syh/hdd/checkpoints/data_check/data_MUF.pt')
+        torch.save(self.tracks, '/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt')
         #
         # for filename in sorted(os.listdir(self.root_dir)):
         #     if filename.endswith('.jpg') or filename.endswith('.png'):

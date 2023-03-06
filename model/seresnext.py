@@ -117,8 +117,9 @@ class SEResNeXt(nn.Module):
                     bottleneck_width=bottleneck_width))
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
+
         self.features.add_module("final_pool", nn.AvgPool2d(
-            kernel_size=7,
+            kernel_size=(4,8),
             stride=1))
 
         self.output = nn.Linear(
