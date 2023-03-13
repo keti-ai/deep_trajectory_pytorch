@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 # from base_model import Base_Model
 
@@ -28,6 +27,7 @@ class Cleaving(nn.Module):
         # self.srh_fcn = nn.Linear(track_len - 1, track_len - 1)
         self.srh_fcn = nn.Sequential(
             nn.Linear(track_len - 1, track_len - 1),
+            nn.Linear(track_len - 1, 2*(track_len - 1)),
             nn.Sigmoid()
         )
         self.pur_fcn = nn.Sequential(
@@ -35,9 +35,9 @@ class Cleaving(nn.Module):
             nn.Sigmoid()
         )
 
-        self.classifier = nn.Sequential(
-            nn.Linear(feat_size,id_len)
-        )
+        #self.classifier = nn.Sequential(
+        #    nn.Linear(feat_size,id_len)
+        #)
         self.width = wh[0]
         self.height = wh[1]
 
@@ -71,7 +71,7 @@ class Cleaving(nn.Module):
 
         srh_output = self.srh_fcn(phi_d)
         pur_output = self.pur_fcn(phi_d)
-        return gru_output_f,gru_output_b,srh_output,pur_output,self.classifier(feat)
+        return gru_output_f,gru_output_b,srh_output,pur_output#,self.classifier(feat)
 
 class SiameseBiGRU(nn.Module):
     def __init__(self, track_len=120,input_size=2048, hidden_size=256, num_layers=4, dropout=0.2):

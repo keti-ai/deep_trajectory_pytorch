@@ -121,13 +121,15 @@ if __name__ == "__main__":
             drop_last=False
         )
     )
-    model=torch.load("/media/syh/hdd/checkpoints/deep_trajectory/1488_model.pth")
+    model=torch.load("/media/syh/hdd/checkpoints/deep_trajectory_withoutcls/60_model.pth")
     model.eval()
 
     for i,data in enumerate(dataloader):
         label = data[0][1]
         tracklet = data[0][0]
-        gru_out_f, gru_out_b, srh_out, pur_out,cls_out = model(torch.stack([tracklet]))
+        # gru_out_f, gru_out_b, srh_out, pur_out,cls_out = model(torch.stack([tracklet]))
+        gru_out_f, gru_out_b, srh_out, pur_out = model(torch.stack([tracklet]))
+
         y_pred_f=gru_out_f.topk(5)
     # tracklets=next(iter(dataloader))
     st=time.time()
