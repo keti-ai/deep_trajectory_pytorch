@@ -133,10 +133,10 @@ class Tracklet():
 
 
 class TrackDataSet(Dataset):
-    def __init__(self,root_dir,track_length):
+    def __init__(self,root_dir,track_length,test=False):
         self.root_dir = root_dir
         self.track_len = track_length
-
+        self.eval=test
         self.tracks=[]
         self.transforms=transforms.Compose([transforms.ToTensor(),
                                             transforms.Resize((256,128))])
@@ -150,6 +150,24 @@ class TrackDataSet(Dataset):
     def __len__(self):
         return len(self.tracks)
     def __getitem__(self, idx): # idx == iter
+        '''
+        Get Tracklet by index
+
+        Parameters
+        ------------
+        idx - int
+            tracklet index
+
+        Returns
+        ----------
+        (data) - tuple, shape - (2)
+            (data)[0] - torch.Tensor, shape - (1,self.track_len)
+                torch.Tensor(torch.stack(imgs_)).float().cuda()
+
+            (data)[1] - torch.Tensor, shape - (1,self.track_len)
+                torch.Tensor(label_).cuda().type(torch.cuda.LongTensor)
+
+        '''
         '''
         idx = [ 4,6,2,1] // batch with indexes
         self.data = np.random.rand(10,120,256,128,3)
@@ -206,11 +224,40 @@ class TrackDataSet(Dataset):
     # image 로드는 __get_item__에서 실행
     # make Track List
     def load_tracks(self,zero_ind=False):
+        '''
+        Load Tracks from bboxes in self.root_dir in some rules
+
+        Rules :
+            1. Make initial tracklet.
+            2. Among tracklet in specific legnth, the half use positive tracklet another use negative tracklet.
+            3. Negative track gen.
+                3-1.split incremental ratio ex) 1:119, 2:118, ..., 119:1
+                3-2.merge tracklet fragment with different id.
+
+
+        Parameters
+        ------------
+        zero_ind - bool
+                 check index number start zero or not
+
+        Returns
+        ----------
+        -
+        '''
+
+        '''
+        1. Make initial tracklet.
+        '''
         track = []
         list_bbox = os.listdir(self.root_dir)
         list_bbox.sort()
         if os.path.exists('/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt'):
-            self.tracks=torch.load('/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt')
+            if self.eval:
+                self.tracks=torch.load('/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt')
+                self.tracks=self.tracks[:len(self.tracks)//4]
+            else:
+                self.tracks=torch.load('/media/syh/hdd/checkpoints/data_check/data_MUF_new.pt')
+                self.tracks = self.tracks[len(self.tracks) // 4:]
             print("pass")
             return True
         bbox_list = []
@@ -237,7 +284,9 @@ class TrackDataSet(Dataset):
             tracklets.append(Tracklet(bb.get_id(), bb.get_cam(), bb.get_proj(), bb, delay, length))
             tracklet_id += 1
         print("Gen initial Tracklet : ", tracklet_id)
-
+        '''
+        2
+        '''
         track_120=[]
         for tr in tracklets:
             if len(tr) == 120:
@@ -252,6 +301,9 @@ class TrackDataSet(Dataset):
             if indee > 356:
                 pos_tracks.append(tr)
             else:
+                '''
+                3
+                '''
                 cut_id=indee%119+1
                 in_boxes = tr.get_bboxes()
                 for_nee.append(

@@ -105,8 +105,8 @@ if __name__ == "__main__":
     track_len_in = 120
 
     # Create the model
-    # model = Cleaving(track_len=track_len_in, id_len=22, feat_size=feat_size, hidden_size=hidden_size,
-    #                  num_layers=num_layers, dropout=dropout).cuda()
+    model = Cleaving(track_len=track_len_in, id_len=22, feat_size=feat_size, hidden_size=hidden_size,
+                     num_layers=num_layers, dropout=dropout).cuda()
 
     # Define the loss function and optimizer
     trackdataset = TrackDataSet(root_dir="/media/syh/ssd2/data/ReID/bounding_box_train",track_length=120)
@@ -121,17 +121,57 @@ if __name__ == "__main__":
             drop_last=False
         )
     )
-    model=torch.load("/media/syh/hdd/checkpoints/deep_trajectory_withoutcls/60_model.pth")
+    model_data=torch.load("/media/syh/hdd/checkpoints/deep_trajectory_230313_1_srh_weight_cls_resume_141/204_all.tar")
+    model.load_state_dict(model_data['model_state_dict'])
     model.eval()
+
+    acc_srh = 0
+    acc_gru = 0
+    acc_gru_f = 0
+    acc_gru_b = 0
+    acc_pur_ = 0
+    acc_cls = 0
+    # acc_cls_ = 0
+
+    acc_srh = 0
+    acc_srh_ = 0
 
     for i,data in enumerate(dataloader):
         label = data[0][1]
         tracklet = data[0][0]
         # gru_out_f, gru_out_b, srh_out, pur_out,cls_out = model(torch.stack([tracklet]))
         gru_out_f, gru_out_b, srh_out, pur_out = model(torch.stack([tracklet]))
-
+        srh_target = torch.Tensor([label[i] != label[i + 1] for i in range(len(label) - 1)]).cuda()
         y_pred_f=gru_out_f.topk(5)
-    # tracklets=next(iter(dataloader))
+        # tracklets=next(iter(dataloader))
+
+        '''
+        
+        check accuracy
+        
+        '''
+        _, pred = gru_out_f.data.cpu().topk(1)
+        _, pred_ = gru_out_b.data.cpu().topk(1)
+
+        acc_gru_f += torch.sum(pred[0].t() == label.data.cpu())
+        acc_gru_b += torch.sum(pred_[0].t() == label.data.cpu())
+
+        # acc_pur
+        _, pred_pur = pur_out.data.cpu().topk(1)
+        acc_pur_ += int(pred_pur == int(len(torch.unique(label)) != 1))
+
+        # acc srh
+
+        srh_pred = (srh_out[0].view(track_len_in - 1, 2).topk(1)[1] == 1)
+        if int(len(torch.unique(label)) != 1):  # class 두개 이상
+            if len(srh_pred.nonzero(as_tuple=True)[0]) == 0:  # 발견못했을 때
+                acc_srh += 0
+            else:  # 발견했을 때
+                acc_srh_ += torch.sum(srh_pred.nonzero(as_tuple=True)[0] == (srh_target == 1).nonzero(as_tuple=True)[0])
+        else:  # 한개의 클래스
+            if len(srh_pred.nonzero(as_tuple=True)[0]) == 0:
+                acc_srh += 1
+
     st=time.time()
     gru_out_f, gru_out_b, srh_out, pur_out = model(torch.stack([tracklets[0][0]]))
     ed=time.time()

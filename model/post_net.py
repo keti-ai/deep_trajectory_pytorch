@@ -12,6 +12,34 @@ import torch.nn as nn
 from model.seresnext import seresnext50_32x4d
 # from torch.nn.utils.rnn import PackedSequence
 class Cleaving(nn.Module):
+    '''
+    Create Cleaving model obejct
+
+    Parameters
+    ------------
+    wh - np.ndarray, shape - (12)
+        an 12-dim vector which is to be updated
+
+    wh - tuple, shape - (2)
+        input image width,height
+    track_len - int
+        length of tracklet
+    id_len - int
+        total number of id
+    feat_size - int
+        feature length of feature extraction model output
+    hidden_size - int
+        hidden state value length in GRU
+    num_layers - int
+        number of GRU layer
+    dropout - float
+        dropout rate
+
+    Returns
+    --------
+    error - float
+            the geometric error
+    '''
     def __init__(self,wh=(128,256),track_len=120,id_len=1000,feat_size=2048, hidden_size=256, num_layers=4, dropout=0.2):
         super().__init__()
         # params
