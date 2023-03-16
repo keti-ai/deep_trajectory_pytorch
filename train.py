@@ -54,28 +54,43 @@ from model.deep_track_loss import FocalLoss
 
 # Train the model
 
+from cfg._configs import Parser
+import yaml
 import os
+
 if __name__ == "__main__":
+    argparser=Parser()
+    args_=argparser.args
+
+    print(args_.yaml)
+    with open(args_.yaml) as f:
+        conf = yaml.safe_load(f)
+
     # vis_log=VisLogger(title="Test_loss",env_="main6",legends=["feat_loss","srh_loss","pur_loss","cls_loss","loss"])
 
-    EXP_NAME="230314_1_srh_weight_cls_resume_50_train_test_split"
-    args_resume = True
-    test_only = False
+    EXP_NAME=conf['BASE']['EXP']
+
+    args_resume = conf['TRAIN']['RESUME'] ##
+    test_only = conf['BASE']['TEST_ONLY'] ##
+
 
     ENV_NAME="main_"+EXP_NAME
     vis_log=VisLogger(title="Test_loss",env_=ENV_NAME,legends=["feat_loss","srh_loss","pur_loss","loss"])
-    epochs = 1000
+    epochs = conf['TRAIN']['EPOCHS'] ##
 
-    feat_size = 2048  # size of input features
-    hidden_size = 128
-    num_layers = 4
-    num_id = 22
-    dropout = 0.2
-    learning_rate = 0.001
+
+    feat_size = conf['MODEL']['FEATEXT']['FEAT_LEN']  # size of input features
+    hidden_size = conf['MODEL']['TRACKREAD']['HIDDEN_SIZE'] ##
+    num_layers = conf['MODEL']['TRACKREAD']['NUM_LAYER'] ##
+    num_id = conf['MODEL']['TRACKREAD']['NUM_ID'] ##
+    dropout = conf['MODEL']['TRACKREAD']['DROPOUT'] ##
+    learning_rate = conf['TRAIN']['LR'] ##
 
     # Tracklet info
-    track_len_in = 120
+    track_len_in = conf['MODEL']['TRACKREAD']['TRACK_LEN'] ##
+
     # Create the model
+
     if args_resume:
         model = torch.load("/media/syh/hdd/checkpoints/deep_trajectory_230308_1_with_search_cls_w_loss/50_model.pth")
         # model = Cleaving(track_len=track_len_in, id_len=22, feat_size=feat_size, hidden_size=hidden_size,
@@ -85,41 +100,39 @@ if __name__ == "__main__":
         start_epoch = 50+1
         learning_rate = 0.001*0.95**start_epoch
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
         # optimizer.load_state_dict(model_data['optimizer_state_dict'])
-
-
     else:
         model = Cleaving(track_len=track_len_in, id_len=num_id, feat_size=feat_size, hidden_size=hidden_size,
                          num_layers=num_layers, dropout=dropout).cuda()
-
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
         start_epoch = 1
+
+    if conf['TRAIN']['OPTIM'] == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    else :
+        print("No matching optimizer")
+        raise KeyboardInterrupt
 
     # Define the loss function and optimizer
 
-    lam_feat = 0.33
-    lam_search = 0.33
-    lam_pur = 0.33
+    lam_feat = conf['MODEL']['LOSS']['LAMBDAS']['FEAT'] ##
+    lam_search = conf['MODEL']['LOSS']['LAMBDAS']['SEARCH'] ##
+    lam_pur = conf['MODEL']['LOSS']['LAMBDAS']['PURITY'] ##
     #lam_cls = 0.2
 
-
     # search weight
-
-    srh_weight_cls = [0.016, 1.984]
+    srh_weight_cls = conf['MODEL']['LOSS']['PARAMS']['SEARCH'] ##
     # srh_weight_cls = [1, 1]
 
     #criterion_cls = torch.nn.CrossEntropyLoss()
     criterion_gru = torch.nn.CrossEntropyLoss()
     # criterion_srh = torch.nn.L1Loss()
     criterion_srh = FocalLoss(weight=torch.Tensor(srh_weight_cls).cuda())
-
     criterion_pur = torch.nn.BCELoss()
 
 
-    trackdataset = TrackDataSet(root_dir="/media/syh/ssd2/data/ReID/bounding_box_train",track_length=120,test=False)
-    trackdataset_test = TrackDataSet(root_dir="/media/syh/ssd2/data/ReID/bounding_box_train",track_length=120,test=True)
-    batch_size_ = 1
+    trackdataset = TrackDataSet(root_dir=conf['DATA']['ROOT_DIR'],track_length=track_len_in,test=False)
+    trackdataset_test = TrackDataSet(root_dir=conf['DATA']['ROOT_DIR'],track_length=track_len_in,test=True)
+    batch_size_ = conf['TRAIN']['BATCH_SIZE'] ##
 
     scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer,
                                             lr_lambda=lambda epoch: 0.95 ** epoch,
@@ -160,6 +173,7 @@ if __name__ == "__main__":
     iter = 0
     acc = 0
     best_acc = 0
+
     for epoch in range(start_epoch,epochs):
         running_loss = 0.0
 
@@ -330,8 +344,9 @@ if __name__ == "__main__":
         # FILENAME_MODEL = "%d_model.pth" % (epoch)
         # FILENAME_DICT = "%d_model_dict.pt" % (epoch)
         FILENAME_ALL = "%d_all.tar" % (epoch)
-
-        PATH_DIR = "/media/syh/hdd/checkpoints/deep_trajectory_"+EXP_NAME
+        PATH_ROOT = conf['TRAIN']["CHECKPOINT"]["PATH_ROOT"]
+        CHKP_NAME = "_".join([conf['TRAIN']["CHECKPOINT"]["PRE"],EXP_NAME])
+        PATH_DIR = os.path.join(PATH_ROOT,CHKP_NAME)
         if not os.path.exists(PATH_DIR):
             os.makedirs(PATH_DIR)
 
